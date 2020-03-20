@@ -12,8 +12,30 @@ def test_two_circles():
     assert resulted_aps[0] in resulted_aps[1].ap_connected_to
     assert resulted_aps[1] in resulted_aps[0].ap_connected_to
     assert resulted_aps[1] in resulted_aps[1].ap_connected_to
+    assert resulted_aps[0].type == 11
+    assert resulted_aps[1].type == 11
+    assert resulted_aps[0].location != resulted_aps[1].location #check the circles are indeed different
+    assert resulted_aps[0].location == (100000, 100000) or resulted_aps[0].location == (300000, 200000)
+    assert resulted_aps[1].location == (100000, 100000) or resulted_aps[1].location == (300000, 200000)
     print ("passed two circle test")
+
+def test_circles_and_squares():
+    gerber_file = GerberFile("connected_circiles_and_squares.GBL")
+    resulted_aps = gerber_file.process_aps_with_connection()
+    assert len(resulted_aps) == 5
+    for ap in resulted_aps:
+        assert ap.type == 11 or ap.type == 12
+        if ap.type == 11:#ap is one of the 2 circles
+            assert len(ap.ap_connected_to) == 2
+            for ap_connected in ap.ap_connected_to:
+                assert ap_connected.type == 11 #check circles are only connected to circles
+        if ap.type == 12:#ap is one of the 2 circles
+            assert len(ap.ap_connected_to) == 3
+            for ap_connected in ap.ap_connected_to:
+                assert ap_connected.type == 12 #check squares are only connected to squares
+    print ("passed circles ans sqaures test")
     
 
 if __name__ == '__main__':
     test_two_circles()
+    test_circles_and_squares()
