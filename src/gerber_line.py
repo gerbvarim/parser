@@ -14,11 +14,17 @@ class GerberLine(object):
         digits = ['0','1','2','3','4','5','6','7','8','9']
         num = 0
         index = start_index
+        neg_number = False
+        if self.line_string[index] == '-':#if number is negative
+            index += 1
+            neg_number = True
+            
         while index < len(self.line_string) and self.line_string[index] in digits:
             num = num * 10
             num += ord(self.line_string[index]) - ord('0')
             index += 1
-            
+        if neg_number:
+            num = -1 * num
         return num
     
     def line_is_command(self):
