@@ -36,6 +36,36 @@ class GerberAPObround(object):
     def point_in_ap(self, point_tuple):
         return abs(point_tuple[0]) < self.width / 2 and abs(point_tuple[1]) < self.height / 2
 
+def point_diff_by2(point1, point2):
+    return (point1[0] - point2[0])**2 + (point1[1] - point2[1])**2
+        
+class GerberAPLine(object):
+    """
+    a line apature.
+    needed because some points are connected from the middle of a line drawn.
+    """
+    def __init__(self, start_point, end_point, radius):
+        self.radius = radius
+        self.start_point = start_point
+        self.end_point = end_point
+    
+    def find_closest_line_point(self, point):
+        min_point = self.start_point
+        max_point = self.end_point
+        mid_point = None
+        while abs(max_point[0] - min_point[0]) > 1 or  abs(max_point[1] - min_point[1]) > 1 :
+            mid_point = ( (min_point[0] + max_point[0]) / 2, (min_point[1] + max_point[1]) / 2 )
+            if point_diff_by2(min_point, point) > point_diff_by2(max_point, point):
+                min_point = mid_point
+            else:
+                max_point = mid_point
+        return min_point
+    
+    def point_in_ap(self, point_tuple):
+        closest_point = self.find_closest_line_point(point_tuple)
+        if point_tuple == (64745, 63373) and (self.start_point == (64745, 56896) or self.end_point == (64745, 56896)):
+        return point_diff_by2(closest_point, point_tuple) <= self.radius ** 2
+
 class GerberFile(object):
     def __init__(self, file_path):
         self.raw_lines = open(file_path, "r").read().split()
@@ -61,7 +91,8 @@ class GerberFile(object):
         self.x_scale = 99 # default value of extremly high precision and very large amount of digits. basically the maximum supported in the standart
         self.y_scale = 99
         
-        
+        #list of lines. will be used to detect point connected directly to line and not ap.
+        self.ap_line_list = []
         
         #internal vars, used to transfer data between functions
         self.current_x = 0
@@ -114,13 +145,18 @@ class GerberFile(object):
         line_x =  line.get_var_dec_value('X')
         line_y =  line.get_var_dec_value('Y')
         
+        next_x = line_x if line_x != None else self.current_x
+        next_y = line_y if line_y != None else self.current_y
+        
         if command_type == 1: #connection_drawing command
-            self.connect_points((line_x if line_x != None else self.current_x, line_y if line_y != None else self.current_y), (self.current_x, self.current_y))
             
-        if line_x != None:
-            self.current_x = line_x
-        if line_y != None:
-            self.current_y = line_y
+            self.connect_points((next_x, next_y), (self.current_x, self.current_y))
+            #assume x_scale and y_scale identical for line. may improve later
+            ap_line = GerberAPLine( (self.current_x, self.current_y), (next_x, next_y), self.ap_types_dict[self.current_ap_type].r * 10**(self.x_scale % 10) )
+            self.ap_line_list.append(ap_line)
+            
+        self.current_x = next_x
+        self.current_y = next_y
             
         if command_type == 3:#aparture adding command
             ap = GerberAP(self.current_x, self.current_y, self.current_ap_type)
@@ -166,6 +202,16 @@ class GerberFile(object):
                 if self.ap_types_dict[ap.type].point_in_ap( self.gerber_point_scaling((point[0] - ap_loc[0], point[1] - ap_loc[1])) ):
                     ap.points_connected_to.append(point)
     
+    def connect_point_to_line(self):
+        """
+        pass on all points and check if they are connected directely to a line
+        """
+        for point in self.connected_points_dict:
+            for ap_line in self.ap_line_list:
+                if ap_line.point_in_ap(point):
+                    self.connect_points(point, ap_line.start_point)
+                    self.connect_points(point, ap_line.end_point)
+    
     def generate_APs_connections(self):
         """
         use the points connection to calc which APs are connected to each other
@@ -190,6 +236,7 @@ class GerberFile(object):
         """
         self.parse_lines()
         self._remove_dup_from_connected_points_dict()
+        self.connect_point_to_line()
         self.link_ap_to_points()
         self.generate_APs_connections()
         self._remove_dup_from_connected_aps()

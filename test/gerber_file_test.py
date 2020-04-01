@@ -43,6 +43,7 @@ def minor_test_from_real_life():
     print (len(gerber_file.gerber_ap_dict[(64745, 63373)].ap_connected_to))
     for ap in gerber_file.gerber_ap_dict[(64745, 63373)].ap_connected_to:
         print (ap.location)
+    assert len(gerber_file.gerber_ap_dict[(64745, 63373)].ap_connected_to) == 8
     assert len(gerber_file.gerber_ap_dict[(55030, 50311)].ap_connected_to) == 2
     assert len(gerber_file.gerber_ap_dict[(58864, 50038)].ap_connected_to) == 3
 
