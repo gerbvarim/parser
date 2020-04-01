@@ -6,6 +6,7 @@ def test_two_circles():
     gerber_file = GerberFile("two_connected_circles.GBL")
     resulted_aps = gerber_file.process_aps_with_connection()
     assert len(resulted_aps) == 2
+    print (resulted_aps[0].ap_connected_to)
     assert len(resulted_aps[0].ap_connected_to) == 2
     assert len(resulted_aps[1].ap_connected_to) == 2
     assert resulted_aps[0] in resulted_aps[0].ap_connected_to
@@ -35,7 +36,17 @@ def test_circles_and_squares():
                 assert ap_connected.type == 12 #check squares are only connected to squares
     print ("passed circles ans sqaures test")
     
+def minor_test_from_real_life():
+    gerber_file = GerberFile("Serial_Demux_top_test.GTL")
+    gerber_file.process_aps_with_connection()
+    print (len(gerber_file.gerber_ap_dict))
+    print (len(gerber_file.gerber_ap_dict[(64745, 63373)].ap_connected_to))
+    for ap in gerber_file.gerber_ap_dict[(64745, 63373)].ap_connected_to:
+        print (ap.location)
+    assert len(gerber_file.gerber_ap_dict[(55030, 50311)].ap_connected_to) == 2
+    assert len(gerber_file.gerber_ap_dict[(58864, 50038)].ap_connected_to) == 3
 
 if __name__ == '__main__':
     test_two_circles()
     test_circles_and_squares()
+    minor_test_from_real_life()
