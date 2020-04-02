@@ -63,7 +63,6 @@ class GerberAPLine(object):
     
     def point_in_ap(self, point_tuple):
         closest_point = self.find_closest_line_point(point_tuple)
-        if point_tuple == (64745, 63373) and (self.start_point == (64745, 56896) or self.end_point == (64745, 56896)):
         return point_diff_by2(closest_point, point_tuple) <= self.radius ** 2
 
 class GerberFile(object):
@@ -245,6 +244,30 @@ class GerberFile(object):
         for ap_loc in self.gerber_ap_dict:
             result.append(self.gerber_ap_dict[ap_loc])
         return result
+    
+    def get_nets(self):
+        """
+        get al nets. net is represented by a list connected apartue_centers.
+        net must contain more than one connection.
+        """
+        if len(self.gerber_ap_dict) == 0:
+            self.process_aps_with_connection()
+        
+        already_processed_aps = []
+        net_list = []
+        for ap_loc in self.gerber_ap_dict:
+            ap = self.gerber_ap_dict[ap_loc]
+            if not(ap in already_processed_aps):
+                net_list.append([connected_ap.location for connected_ap in ap.ap_connected_to])
+                already_processed_aps += ap.ap_connected_to
+        
+        nontrivial_net_list = []#net list without nets with only 1 point
+        for point_list in net_list:
+            if len(point_list) > 1:
+                nontrivial_net_list.append(point_list)
+        
+        return nontrivial_net_list
+        
                 
                 
                 
