@@ -107,14 +107,12 @@ class GerberFile(object):
             self.connected_points_dict[point_tuple1] = [point_tuple1]
         if not (point_tuple2 in self.connected_points_dict):
             self.connected_points_dict[point_tuple2] = [point_tuple2]
+        new_connection_group = self.connected_points_dict[point_tuple1] + self.connected_points_dict[point_tuple2]
+        new_connection_group = remove_list_duplicate(new_connection_group)
+        
+        for point_tuple in new_connection_group:
+            self.connected_points_dict[point_tuple] = new_connection_group
             
-        for point_tuple in self.connected_points_dict[point_tuple1]:
-            self.connected_points_dict[point_tuple] = self.connected_points_dict[point_tuple] + self.connected_points_dict[point_tuple2]
-            self.connected_points_dict[point_tuple] = remove_list_duplicate(self.connected_points_dict[point_tuple])
-            
-        for point_tuple in self.connected_points_dict[point_tuple2]:
-            self.connected_points_dict[point_tuple] = self.connected_points_dict[point_tuple] + self.connected_points_dict[point_tuple1]
-            self.connected_points_dict[point_tuple] = remove_list_duplicate(self.connected_points_dict[point_tuple])
     
     def gerber_point_scaling(self, point_tuple):
         """
