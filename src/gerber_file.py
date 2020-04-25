@@ -19,22 +19,27 @@ class GerberAP(object):
 class GerberAPCircle(object):
     def __init__(self, param_list):
         self.r = param_list[0] / 2.0#you get diameter, not a radius
-    def point_in_ap(self, point_tuple):
-        return (point_tuple[0]**2 + point_tuple[1]**2) <= self.r**2
+    def point_in_ap(self, point_tuple, location):
+        return ( (point_tuple[0]-location[0])**2 + (point_tuple[1]-location[1])**2) <= self.r**2
+    
+    def does_crossed_by_line(self, ap_line, location):
+        closest_point = line.find_closest_line_point(location)
+        return self.point_in_ap()
 
 class GerberAPRectangle(object):
     def __init__(self, param_list):
         self.width = param_list[0]
         self.height = param_list[1]
-    def point_in_ap(self, point_tuple):
-        return abs(point_tuple[0]) < self.width / 2 and abs(point_tuple[1]) < self.height / 2
+    def point_in_ap(self, point_tuple, location):
+        return abs(point_tuple[0]-location[0]) < self.width / 2 and abs(point_tuple[1]-location[1]) < self.height / 2
+    
 
 class GerberAPObround(object):
     def __init__(self, param_list):
         self.width = param_list[0]
         self.height = param_list[1]
-    def point_in_ap(self, point_tuple):
-        return abs(point_tuple[0]) < self.width / 2 and abs(point_tuple[1]) < self.height / 2
+    def point_in_ap(self, point_tuple, location):
+        return abs(point_tuple[0]-location[0]) < self.width / 2 and abs(point_tuple[1]-location[1]) < self.height / 2
 
 def point_diff_by2(point1, point2):
     return (point1[0] - point2[0])**2 + (point1[1] - point2[1])**2
@@ -129,7 +134,9 @@ class GerberFile(object):
         ap_type_defined = line.get_var_dec_value("ADD")
         shape_type = line.line_string[6]
         if shape_type in self.ap_types_consturctor_dict:
-            self.ap_types_dict[ap_type_defined] = self.ap_types_consturctor_dict[shape_type](line.get_real_values_line_def())
+            values = line.get_real_values_line_def()
+            values = [int(value * 10**(self.x_scale % 10)) for value in values]
+            self.ap_types_dict[ap_type_defined] = self.ap_types_consturctor_dict[shape_type](values)
         else: #shape undefined, handle as minimal size circle
             self.ap_types_dict[ap_type_defined] = self.ap_types_consturctor_dict['C']([10**(-(self.x_scale % 10))])
             
@@ -149,7 +156,7 @@ class GerberFile(object):
             
             self.connect_points((next_x, next_y), (self.current_x, self.current_y))
             #assume x_scale and y_scale identical for line. may improve later
-            ap_line = GerberAPLine( (self.current_x, self.current_y), (next_x, next_y), self.ap_types_dict[self.current_ap_type].r * 10**(self.x_scale % 10) )
+            ap_line = GerberAPLine( (self.current_x, self.current_y), (next_x, next_y), self.ap_types_dict[self.current_ap_type].r )
             self.ap_line_list.append(ap_line)
             
         self.current_x = next_x
@@ -180,11 +187,7 @@ class GerberFile(object):
             else:
                 pass
                 
-    
-    def _remove_dup_from_connected_points_dict(self):
-        for point in self.connected_points_dict:
-            self.connected_points_dict[point] = remove_list_duplicate(self.connected_points_dict[point])
-    
+   
     def _remove_dup_from_connected_aps(self):
         for ap_loc in self.gerber_ap_dict:
             self.gerber_ap_dict[ap_loc].ap_connected_to = remove_list_duplicate(self.gerber_ap_dict[ap_loc].ap_connected_to)
@@ -196,7 +199,7 @@ class GerberFile(object):
         for ap_loc in self.gerber_ap_dict:#for all ap
             ap = self.gerber_ap_dict[ap_loc]
             for point in self.connected_points_dict:#for all connection endpoints
-                if self.ap_types_dict[ap.type].point_in_ap( self.gerber_point_scaling((point[0] - ap_loc[0], point[1] - ap_loc[1])) ):
+                if self.ap_types_dict[ap.type].point_in_ap( point, ap_loc ):
                     ap.points_connected_to.append(point)
     
     def connect_point_to_line(self):
@@ -232,7 +235,7 @@ class GerberFile(object):
         it shall return a list of GerberAP with thier connection
         """
         self.parse_lines()
-        self._remove_dup_from_connected_points_dict()
+        
         self.connect_point_to_line()
         self.link_ap_to_points()
         self.generate_APs_connections()
