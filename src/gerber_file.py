@@ -22,7 +22,7 @@ class GerberAPCircle(object):
         return ( (point_tuple[0]-location[0])**2 + (point_tuple[1]-location[1])**2) <= self.r**2
     
     def does_crossed_by_line(self, ap_line, location):
-        closest_point = line.find_closest_line_point(location)
+        closest_point = ap_line.find_closest_line_point(location)
         return self.point_in_ap(closest_point, location)
 
 class GerberAPRectangle(object):
@@ -32,6 +32,22 @@ class GerberAPRectangle(object):
     def point_in_ap(self, point_tuple, location):
         return abs(point_tuple[0]-location[0]) < self.width / 2 and abs(point_tuple[1]-location[1]) < self.height / 2
     
+    def does_crossed_by_line(self, ap_line, location):
+        side_line = GerberAPLine( (location[0] - self.width/2, location[1] + self.height/2) , (location[0] + self.width/2, location[1] + self.height/2), 10)
+        if ap_line.does_line_corss(side_line):
+            return True
+        side_line = GerberAPLine( (location[0] - self.width/2, location[1] - self.height/2) , (location[0] + self.width/2, location[1] - self.height/2), 10)
+        if ap_line.does_line_corss(side_line):
+            return True
+        side_line = GerberAPLine( (location[0] + self.width/2, location[1] - self.height/2) , (location[0] + self.width/2, location[1] + self.height/2), 10)
+        if ap_line.does_line_corss(side_line):
+            return True
+        side_line = GerberAPLine( (location[0] - self.width/2, location[1] - self.height/2) , (location[0] - self.width/2, location[1] + self.height/2), 10)
+        if ap_line.does_line_corss(side_line):
+            return True
+        
+        return False
+    
 
 class GerberAPObround(object):
     def __init__(self, param_list):
@@ -39,6 +55,22 @@ class GerberAPObround(object):
         self.height = param_list[1]
     def point_in_ap(self, point_tuple, location):
         return abs(point_tuple[0]-location[0]) < self.width / 2 and abs(point_tuple[1]-location[1]) < self.height / 2
+        
+    def does_crossed_by_line(self, ap_line, location):
+        side_line = GerberAPLine( (location[0] - self.width/2, location[1] + self.height/2) , (location[0] + self.width/2, location[1] + self.height/2), 10)
+        if ap_line.does_line_corss(side_line):
+            return True
+        side_line = GerberAPLine( (location[0] - self.width/2, location[1] - self.height/2) , (location[0] + self.width/2, location[1] - self.height/2), 10)
+        if ap_line.does_line_corss(side_line):
+            return True
+        side_line = GerberAPLine( (location[0] + self.width/2, location[1] - self.height/2) , (location[0] + self.width/2, location[1] + self.height/2), 10)
+        if ap_line.does_line_corss(side_line):
+            return True
+        side_line = GerberAPLine( (location[0] - self.width/2, location[1] - self.height/2) , (location[0] - self.width/2, location[1] + self.height/2), 10)
+        if ap_line.does_line_corss(side_line):
+            return True
+        
+        return False
 
 def point_diff_by2(point1, point2):
     return (point1[0] - point2[0])**2 + (point1[1] - point2[1])**2
@@ -52,7 +84,30 @@ class GerberAPLine(object):
         self.radius = radius
         self.start_point = start_point
         self.end_point = end_point
-    
+        self.equation =[0, 0, 0] #equation of type equation[0]*x + equation[1]*y = equation[2]
+        if start_point[0] == end_point[0]:#no x change
+            self.equation[0] = 1
+            self.equation[2] = start_point[0]
+        elif start_point[1] == end_point[1]:#no y change
+            self.equation[1] = 1
+            self.equation[2] = start_point[1]
+        else:
+            self.equation[0] = 1#choose freedom degree on x
+            self.equation[1] = -(end_point[0] - start_point[0])/(end_point[1] - start_point[1])
+            self.equation[2] = start_point[0] + self.equation[1]*start_point[1]
+            
+    def does_line_corss(self, ap_line):
+        
+        try:
+            matrix_eq = [ [self.equation[0], self.equation[1]], [ap_line.equation[0], ap_line.equation[1]] ]#equation which the solution is the meeting point
+            det = matrix_eq[0][0]*matrix_eq[1][1] - matrix_eq[0][1]*matrix_eq[1][0]
+            inv = [[ matrix_eq[1][1]/det, -matrix_eq[0][1]/det ], [-matrix_eq[1][0]/det, matrix_eq[0][0]/det] ]
+            
+            meeting_point = ( inv[0][0]*self.equation[2] + inv[0][1]*ap_line.equation[2],  inv[1][0]*self.equation[2] + inv[1][1]*ap_line.equation[2] )
+            return self.point_in_ap(meeting_point) and ap_line.point_in_ap(meeting_point)
+        except Exception:
+            return False
+        
     def find_closest_line_point(self, point):
         min_point = self.start_point
         max_point = self.end_point
@@ -212,6 +267,25 @@ class GerberFile(object):
                 if ap_line.point_in_ap(point):
                     self.connect_points(point, ap_line.start_point)
                     self.connect_points(point, ap_line.end_point)
+    def connect_lines(self):
+        """
+        connect crossing lines to each other
+        """
+        for ind1 in range(len(self.ap_line_list)):
+            for ind2 in range(len(self.ap_line_list)):
+                if self.ap_line_list[ind1].does_line_corss(self.ap_line_list[ind2]):
+                    self.connect_points(self.ap_line_list[ind1].start_point, self.ap_line_list[ind2].start_point)
+    
+    def link_aps_to_lines(self):
+        """
+        connect crossing lines to each other
+        """
+        for ap_line in self.ap_line_list:
+            for ap_loc in self.gerber_ap_dict:
+                ap_type = self.ap_types_dict[self.gerber_ap_dict[ap_loc].type]
+                if ap_type.does_crossed_by_line(ap_line, ap_loc):
+                    self.connect_points(ap_loc, ap_line.start_point)
+            
     
     def generate_APs_connections(self):
         """
@@ -236,7 +310,9 @@ class GerberFile(object):
         self.parse_lines()
         
         self.connect_point_to_line()
+        self.connect_lines()
         self.link_ap_to_points()
+        self.link_aps_to_lines()
         self.generate_APs_connections()
         self._remove_dup_from_connected_aps()
         
