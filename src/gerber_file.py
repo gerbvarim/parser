@@ -14,7 +14,6 @@ class GerberAP(object):
         self.location = (x, y)
         self.type = type
         self.ap_connected_to = [self] 
-        self.points_connected_to = []
 
 class GerberAPCircle(object):
     def __init__(self, param_list):
@@ -24,7 +23,7 @@ class GerberAPCircle(object):
     
     def does_crossed_by_line(self, ap_line, location):
         closest_point = line.find_closest_line_point(location)
-        return self.point_in_ap()
+        return self.point_in_ap(closest_point, location)
 
 class GerberAPRectangle(object):
     def __init__(self, param_list):
@@ -165,6 +164,8 @@ class GerberFile(object):
         if command_type == 3:#aparture adding command
             ap = GerberAP(self.current_x, self.current_y, self.current_ap_type)
             self.gerber_ap_dict[(self.current_x, self.current_y)] = ap
+            if not( (self.current_x, self.current_y) in self.connected_points_dict):
+                self.connected_points_dict[(self.current_x, self.current_y)] = [(self.current_x, self.current_y)]
         if command_type > 3: #aparture type command
             self.current_ap_type = command_type
     
@@ -200,7 +201,7 @@ class GerberFile(object):
             ap = self.gerber_ap_dict[ap_loc]
             for point in self.connected_points_dict:#for all connection endpoints
                 if self.ap_types_dict[ap.type].point_in_ap( point, ap_loc ):
-                    ap.points_connected_to.append(point)
+                    self.connect_points(ap_loc, point)
     
     def connect_point_to_line(self):
         """
@@ -218,16 +219,14 @@ class GerberFile(object):
         """
         for ap_loc in self.gerber_ap_dict:#for all aps, based on thier location
             ap_checked = self.gerber_ap_dict[ap_loc]
-            for ap_checked_connection_point in ap_checked.points_connected_to: #usuually one or 2 points
-                for farther_point in self.connected_points_dict[ap_checked_connection_point]: #for all point connected to the connection point
-                    for potential_connected_ap_loc in self.gerber_ap_dict:#for all aps, because we connaot know withou checking which one is connected to farther_point
-                        potential_connected_ap = self.gerber_ap_dict[potential_connected_ap_loc]
-                        if farther_point in potential_connected_ap.points_connected_to:#if farther_point is inside the ap
-                            potential_connected_ap.ap_connected_to += ap_checked.ap_connected_to
-                            ap_checked.ap_connected_to += potential_connected_ap.ap_connected_to
-                            
-                            potential_connected_ap.ap_connected_to = remove_list_duplicate(potential_connected_ap.ap_connected_to)
-                            ap_checked.ap_connected_to = remove_list_duplicate(potential_connected_ap.ap_connected_to)
+            for farther_point in self.connected_points_dict[ap_loc]: #for all point connected to the connection point
+                if farther_point in self.gerber_ap_dict:#if farther point is the location of an ap
+                    connected_ap = self.gerber_ap_dict[farther_point]
+                    connection_ap_list = connected_ap.ap_connected_to + ap_checked.ap_connected_to
+                    connection_ap_list = remove_list_duplicate(connection_ap_list)
+                    connected_ap.ap_connected_to =  connection_ap_list
+                    ap_checked.ap_connected_to =  connection_ap_list
+                       
     
     def process_aps_with_connection(self):
         """
