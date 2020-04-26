@@ -272,7 +272,7 @@ class GerberFile(object):
         connect crossing lines to each other
         """
         for ind1 in range(len(self.ap_line_list)):
-            for ind2 in range(len(self.ap_line_list)):
+            for ind2 in range(ind1 + 1, len(self.ap_line_list)):
                 if self.ap_line_list[ind1].does_line_corss(self.ap_line_list[ind2]):
                     self.connect_points(self.ap_line_list[ind1].start_point, self.ap_line_list[ind2].start_point)
     
